@@ -1,0 +1,38 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when run with the
+# -o option
+*.out
+
+# Dependency directories (remove the comment below if you do not commit vendor)
+# vendor/
+
+# IDE-specific files
+.idea/
+.vscode/
+*.swp
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Compiled binary files
+bin/
+# Or if your binary has the same name as the module:
+gleanup
+
+# Environment configuration files
+.env
+.envrc
+config.json
+
+# OS-specific files
+.DS_Store
+Thumbs.db
