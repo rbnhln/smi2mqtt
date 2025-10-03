@@ -121,7 +121,7 @@ func (app *application) serve() error {
 
 	cancel()
 
-	// Gracefull shutdown with timeout
+	// Graceful shutdown with timeout
 	done := make(chan struct{})
 	go func() {
 		app.wg.Wait()

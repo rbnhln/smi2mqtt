@@ -2,7 +2,7 @@
 services:
   smi2mqtt:
     container_name: smi2mqtt
-    image: gitea.rh-sky.de/robin/smi2mqtt:1.0
+    image: gitea.rh-sky.de/robin/smi2mqtt:latest
     volumes:
       - ./data:/opt/smi2mqtt
     restart: unless-stopped
