@@ -58,7 +58,6 @@ func Save(path string, cfg *Config) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// Validate function for non-optional input
 func (c *Config) Validate() error {
 	if c.Broker == "" {
 		return fmt.Errorf("broker address is required")

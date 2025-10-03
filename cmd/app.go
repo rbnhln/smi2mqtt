@@ -56,7 +56,6 @@ func (app *application) serve() error {
 	for _, gpu := range listGpus {
 		currentGpu := gpu
 
-		// combined monitor for both
 		stateChan, err := gpuinfo.CombinedMonitor(ctx, app.logger, currentGpu)
 		if err != nil {
 			app.logger.Error("failed to start combined monitor for gpu", "gpu_id", currentGpu.Index, "error", err)
@@ -118,7 +117,6 @@ func (app *application) serve() error {
 	s := <-quit
 	app.logger.Info("caught signal", "signal", s.String())
 	app.logger.Info("shutting down")
-
 	cancel()
 
 	// Graceful shutdown with timeout

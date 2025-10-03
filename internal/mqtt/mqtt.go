@@ -8,6 +8,11 @@ import (
 	"github.com/rbnhln/smi2mqtt/internal/config"
 )
 
+// Create interface to enable tests
+type Publisher interface {
+	Publish(payload string, topic string, retained bool) error
+}
+
 type MqttClient struct {
 	client mqtt.Client
 	logger *slog.Logger

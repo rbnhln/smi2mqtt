@@ -1,8 +1,7 @@
-# smi2mqtt
-
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/rbnhln/smi2mqtt)](https://pkg.go.dev/github.com/rbnhln/smi2mqtt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rbnhln/smi2mqtt)](https://goreportcard.com/report/github.com/rbnhln/smi2mqtt)
 
-## Introduction
+# smi2mqtt
 
 A simple and lightweight service to publish NVIDIA GPU statistics from `nvidia-smi` to an MQTT broker. It includes optional support for Home Assistant's MQTT auto-discovery feature, allowing for seamless integration into your smart home setup.
 

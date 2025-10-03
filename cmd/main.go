@@ -72,7 +72,6 @@ func main() {
 		mqttClient: mqttClient,
 	}
 
-	// run application
 	err = app.serve()
 	if err != nil {
 		logger.Error(err.Error())

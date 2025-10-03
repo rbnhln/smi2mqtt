@@ -13,6 +13,14 @@ import (
 	"time"
 )
 
+// nvidia-smi --query-gpu=index,gpu_name,gpu_uuid --format=csv,noheader,nounits
+// nvidia-smi --query-gpu=driver_version --format=csv,noheader
+// nvidia-smi --query-gpu=pstate --format=csv,noheader
+// nvidia-smi dmon --format csv -s pucvmet
+// nvidia-smi dmon --format csv,noheader,nounit -s pucvmet
+// nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.free,driver_version,fan.speed,pstate --format=csv,noheader,nounits
+// --query-compute-apps=name,used_memory
+
 type DmonMetrics struct {
 	Id    int `json:"id"`
 	Pwr   int `json:"pwr"`
@@ -138,6 +146,7 @@ func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU) (<-chan 
 		var currentState GpuState
 		currentState.Gpu = gpu
 
+		// sendUpdatedState ist eine Hilfsfunktion, um Deadlocks zu vermeiden.
 		sendUpdatedState := func() {
 			select {
 			case combinedStateChan <- currentState:
@@ -268,7 +277,6 @@ func runDmon(ctx context.Context, logger *slog.Logger, gpu GPU, out chan<- DmonM
 	logger.Info("dmon process finished, shutting down monitor", "gpu_uuid", gpu.Uuid)
 }
 
-// Sometimes "-" is returned by smi; now it is treated as 0
 func parseInt(s string) int {
 	val := strings.TrimSpace(s)
 	if val == "-" {
@@ -283,7 +291,6 @@ func parseInt(s string) int {
 
 func parseDmonLine(line string) DmonMetrics {
 	parts := strings.Split(line, ",")
-
 	if len(parts) != 22 {
 		return DmonMetrics{}
 	}
