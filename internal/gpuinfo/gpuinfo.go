@@ -107,7 +107,7 @@ func GetGpuInfo() ([]GPU, error) {
 	return gpus, nil
 }
 
-func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU) (<-chan GpuState, error) {
+func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU, intervalSeconds int) (<-chan GpuState, error) {
 	// outside faceing channel
 	combinedStateChan := make(chan GpuState)
 
@@ -122,7 +122,7 @@ func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU) (<-chan 
 	go func() {
 		defer wg.Done()
 		defer close(dmonChan)
-		runDmon(ctx, logger, gpu, dmonChan)
+		runDmon(ctx, logger, gpu, intervalSeconds, dmonChan)
 	}()
 
 	// Goroutine for query
@@ -130,7 +130,7 @@ func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU) (<-chan 
 	go func() {
 		defer wg.Done()
 		defer close(queryChan)
-		runQuery(ctx, logger, gpu, 1*time.Second, queryChan)
+		runQuery(ctx, logger, gpu, time.Duration(intervalSeconds)*time.Second, queryChan)
 	}()
 
 	// The "Merger"-goroutine, to combine both
@@ -221,12 +221,13 @@ func runQuery(ctx context.Context, logger *slog.Logger, gpu GPU, interval time.D
 	}
 }
 
-func runDmon(ctx context.Context, logger *slog.Logger, gpu GPU, out chan<- DmonMetrics) {
+func runDmon(ctx context.Context, logger *slog.Logger, gpu GPU, intervalSeconds int, out chan<- DmonMetrics) {
 	if !isValidGPUUUID(gpu.Uuid) {
 		logger.Error("invalid GPU UUID format", "gpu_uuid", gpu.Uuid)
 		return
 	}
-	cmd := exec.CommandContext(ctx, "nvidia-smi", "dmon", "-s", "pucvmet", "--format", "csv,noheader,nounit", "-i", gpu.Uuid)
+	intervalStr := strconv.Itoa(intervalSeconds)
+	cmd := exec.CommandContext(ctx, "nvidia-smi", "dmon", "-d", intervalStr, "-s", "pucvmet", "--format", "csv,noheader,nounit", "-i", gpu.Uuid)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

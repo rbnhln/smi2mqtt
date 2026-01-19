@@ -56,7 +56,7 @@ func (app *application) serve() error {
 	for _, gpu := range listGpus {
 		currentGpu := gpu
 
-		stateChan, err := gpuinfo.CombinedMonitor(ctx, app.logger, currentGpu)
+		stateChan, err := gpuinfo.CombinedMonitor(ctx, app.logger, currentGpu, app.config.UpdateInterval)
 		if err != nil {
 			app.logger.Error("failed to start combined monitor for gpu", "gpu_id", currentGpu.Index, "error", err)
 			continue
@@ -129,7 +129,7 @@ func (app *application) serve() error {
 	select {
 	case <-done:
 		app.logger.Info("all goroutines finished gracefully")
-	case <-time.After(10 * time.Second):
+	case <-time.After(15 * time.Second):
 		app.logger.Warn("shutdown timeout, forcing exit")
 	}
 	return nil

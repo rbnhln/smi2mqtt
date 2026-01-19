@@ -10,12 +10,13 @@ import (
 )
 
 type Config struct {
-	Broker       string `json:"broker"`
-	ClientID     string `json:"client_id"`
-	Topic        string `json:"topic"`
-	MqttUsername string `json:"mqtt_username"`
-	MqttPassword string `json:"mqtt_password"`
-	HA           bool   `json:"ha"`
+	Broker         string `json:"broker"`
+	ClientID       string `json:"client_id"`
+	Topic          string `json:"topic"`
+	MqttUsername   string `json:"mqtt_username"`
+	MqttPassword   string `json:"mqtt_password"`
+	HA             bool   `json:"ha"`
+	UpdateInterval int    `json:"update_interval"`
 }
 
 // Load config
@@ -25,6 +26,7 @@ func Load(path string) (*Config, error) {
 	// set default values for HA and mqtt Topic
 	cfg.HA = true
 	cfg.Topic = "smi2mqtt"
+	cfg.UpdateInterval = 1
 
 	// Load values from config file, if present
 	file, err := os.ReadFile(path)
@@ -38,6 +40,7 @@ func Load(path string) (*Config, error) {
 	flag.StringVar(&cfg.MqttUsername, "username", cfg.MqttUsername, "username for mqtt server")
 	flag.StringVar(&cfg.MqttPassword, "password", cfg.MqttPassword, "password for mqtt server")
 	flag.BoolVar(&cfg.HA, "ha", cfg.HA, "Use Home Assistant auto-discovery")
+	flag.IntVar(&cfg.UpdateInterval, "interval", cfg.UpdateInterval, "Update interval in seconds (default: 1)")
 
 	return cfg, nil
 }
@@ -64,6 +67,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Topic == "" {
 		return fmt.Errorf("topic is required")
+	}
+	if c.UpdateInterval < 1 {
+		return fmt.Errorf("update interval must be at least 1 second")
 	}
 	return nil
 }

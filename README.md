@@ -63,7 +63,8 @@ services:
   "broker": "tcp://192.168.1.100:1883",
   "mqtt_username": "your_mqtt_user",
   "mqtt_password": "your_mqtt_password",
-  "ha": true
+  "ha": true,
+  "update_interval": 1
 }
 ```
 
@@ -101,14 +102,15 @@ If you want to build the executable yourself:
 
 You can configure the application using a `config.json` file or by passing command-line arguments. CLI arguments will always override the values in the config file.
 
-| CLI Argument     | Config Key      | Description                                  | Default                  |
-| ---------------- | --------------- | -------------------------------------------- | ------------------------ |
-| `-broker`        | `broker`        | MQTT broker address (e.g., tcp://host:1883)  | (none)                   |
-| `-topic`         | `topic`         | Base MQTT topic for publishing stats         | `smi2mqtt`               |
-| `-username`      | `mqtt_username` | Username for the MQTT server                 | (empty)                  |
-| `-password`      | `mqtt_password` | Password for the MQTT server                 | (empty)                  |
-| `-ha`            | `ha`            | Enable Home Assistant auto-discovery         | `true`                   |
-| `-version`       | (n/a)           | Display version and exit                     | `false`                  |
+| CLI Argument     | Config Key         | Description                                  | Default                  |
+| ---------------- | ------------------ | -------------------------------------------- | ------------------------ |
+| `-broker`        | `broker`           | MQTT broker address (e.g., tcp://host:1883)  | (none)                   |
+| `-topic`         | `topic`            | Base MQTT topic for publishing stats         | `smi2mqtt`               |
+| `-username`      | `mqtt_username`    | Username for the MQTT server                 | (empty)                  |
+| `-password`      | `mqtt_password`    | Password for the MQTT server                 | (empty)                  |
+| `-ha`            | `ha`               | Enable Home Assistant auto-discovery         | `true`                   |
+| `-interval`      | `update_interval`  | GPU Readout interval in seconds           | `1`                      |
+| `-version`       | (n/a)              | Display version and exit                     | `false`                  |
 
 ## MQTT Details
 
