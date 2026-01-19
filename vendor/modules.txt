@@ -97,8 +97,8 @@ golang.org/x/vuln/internal/traces
 golang.org/x/vuln/internal/vulncheck
 golang.org/x/vuln/internal/web
 golang.org/x/vuln/scan
-# honnef.co/go/tools v0.5.1
-## explicit; go 1.22.1
+# honnef.co/go/tools v0.6.1
+## explicit; go 1.23
 honnef.co/go/tools/analysis/callcheck
 honnef.co/go/tools/analysis/code
 honnef.co/go/tools/analysis/edit
