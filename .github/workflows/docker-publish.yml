@@ -17,7 +17,7 @@ jobs:
     steps:
       # 1. Check out the repository code
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # 2. Log in to the GitHub Container Registry (ghcr.io)
       - name: Log in to ghcr.io
@@ -31,7 +31,7 @@ jobs:
       # This step creates tags like 'v1.2.3' and 'latest' from the Git tag.
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
