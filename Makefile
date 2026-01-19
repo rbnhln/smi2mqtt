@@ -1,5 +1,5 @@
 # Include variables from the .envrc file
-include .envrc
+-include .envrc
 
 # ==================================================================================== #
 # HELPERS
@@ -64,3 +64,8 @@ build:
 build_x86_64:
 	@echo 'Building for x86_64 ....'
 	GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags='-s' -o=./bin/smi2mqtt ./cmd
+
+.PHONY: build_docker_tar
+build_docker_tar:
+	@echo 'Building for x86_64 in Docker ....'
+	docker buildx build --platform linux/amd64 -t smi2mqtt:test . --output type=docker,dest=./bin/smi-image.tar
