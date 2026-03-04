@@ -31,7 +31,11 @@ func Load(path string) (*Config, error) {
 	// Load values from config file, if present
 	file, err := os.ReadFile(path)
 	if err == nil {
-		json.Unmarshal(file, cfg)
+		if err := json.Unmarshal(file, cfg); err != nil {
+			return nil, fmt.Errorf("failed to parse config file %q: %w", path, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to read config file %q: %w", path, err)
 	}
 
 	// create cli flags, and overwrite if provided

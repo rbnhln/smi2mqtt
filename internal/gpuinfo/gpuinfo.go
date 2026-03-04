@@ -247,7 +247,11 @@ func runDmon(ctx context.Context, logger *slog.Logger, gpu GPU, intervalSeconds 
 		return
 	}
 
-	defer cmd.Wait()
+	defer func() {
+		if waitErr := cmd.Wait(); waitErr != nil && ctx.Err() == nil {
+			logger.Error("dmon process exited with error", "gpu_uuid", gpu.Uuid, "error", waitErr)
+		}
+	}()
 	// Goroutine for error readout
 	go func() {
 		scanner := bufio.NewScanner(stderr)

@@ -50,6 +50,8 @@ audit:
 	go tool govulncheck
 	@echo 'Running tests...'
 	go test -race -vet=off ./...
+	@echo 'Running golangci-lint...'
+	golangci-lint run ./...
 
 # ==================================================================================== #
 # BUILD
