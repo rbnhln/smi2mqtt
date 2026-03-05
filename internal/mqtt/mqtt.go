@@ -2,6 +2,7 @@ package mqtt
 
 import (
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -14,15 +15,18 @@ type Publisher interface {
 }
 
 type MqttClient struct {
-	client mqtt.Client
-	logger *slog.Logger
-	config *config.Config
+	client         mqtt.Client
+	logger         *slog.Logger
+	config         *config.Config
+	reconnectDelay time.Duration
+	reconnectCount atomic.Uint32
 }
 
 func New(cfg *config.Config, logger *slog.Logger) (*MqttClient, error) {
 	mqttClient := &MqttClient{
-		logger: logger,
-		config: cfg,
+		logger:         logger,
+		config:         cfg,
+		reconnectDelay: 1 * time.Second,
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -33,6 +37,7 @@ func New(cfg *config.Config, logger *slog.Logger) (*MqttClient, error) {
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetConnectTimeout(5 * time.Second)
+	opts.SetConnectRetryInterval(2 * time.Second)
 	opts.OnConnect = mqttClient.connectHandler
 	opts.OnConnectionLost = mqttClient.connectionLostHandler
 
@@ -53,11 +58,27 @@ func (c *MqttClient) Disconnect() {
 }
 
 func (c *MqttClient) connectHandler(client mqtt.Client) {
+	count := c.reconnectCount.Load()
 	c.logger.Info("Connected to MQTT Broker")
+	if count > 0 {
+		c.logger.Info("Successfully reconnected to MQTT broker", "reconnect_count", count)
+		c.reconnectCount.Store(0)
+		c.reconnectDelay = 1 * time.Second
+	}
 }
 
 func (c *MqttClient) connectionLostHandler(client mqtt.Client, err error) {
-	c.logger.Error("Connection to MQTT broker lost", "error", err)
+	count := c.reconnectCount.Add(1)
+	c.logger.Error("Connection to MQTT broker lost", "error", err, "reconnect_attempt", count)
+	
+	// Log when we've been trying to reconnect for a while
+	if count > 10 {
+		c.logger.Warn("Still trying to reconnect to MQTT broker", "reconnect_attempt", count, "delay_seconds", c.reconnectDelay.Seconds())
+	}
+	
+	// Reset delay after successful reconnection (handled in connectHandler)
+	// The Paho MQTT client handles the actual reconnection with SetAutoReconnect(true)
+	// We just need to track and log the attempts
 }
 
 func (c *MqttClient) Publish(message string, topic string, retain bool) error {
