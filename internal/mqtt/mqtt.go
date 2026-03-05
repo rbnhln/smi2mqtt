@@ -9,6 +9,8 @@ import (
 	"github.com/rbnhln/smi2mqtt/internal/config"
 )
 
+const reconnectWarnThreshold = 10
+
 // Create interface to enable tests
 type Publisher interface {
 	Publish(payload string, topic string, retained bool) error
@@ -18,15 +20,13 @@ type MqttClient struct {
 	client         mqtt.Client
 	logger         *slog.Logger
 	config         *config.Config
-	reconnectDelay time.Duration
 	reconnectCount atomic.Uint32
 }
 
 func New(cfg *config.Config, logger *slog.Logger) (*MqttClient, error) {
 	mqttClient := &MqttClient{
-		logger:         logger,
-		config:         cfg,
-		reconnectDelay: 1 * time.Second,
+		logger: logger,
+		config: cfg,
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -63,7 +63,6 @@ func (c *MqttClient) connectHandler(client mqtt.Client) {
 	if count > 0 {
 		c.logger.Info("Successfully reconnected to MQTT broker", "reconnect_count", count)
 		c.reconnectCount.Store(0)
-		c.reconnectDelay = 1 * time.Second
 	}
 }
 
@@ -72,11 +71,11 @@ func (c *MqttClient) connectionLostHandler(client mqtt.Client, err error) {
 	c.logger.Error("Connection to MQTT broker lost", "error", err, "reconnect_attempt", count)
 	
 	// Log when we've been trying to reconnect for a while
-	if count > 10 {
-		c.logger.Warn("Still trying to reconnect to MQTT broker", "reconnect_attempt", count, "delay_seconds", c.reconnectDelay.Seconds())
+	if count > reconnectWarnThreshold {
+		c.logger.Warn("Still trying to reconnect to MQTT broker", "reconnect_attempt", count)
 	}
 	
-	// Reset delay after successful reconnection (handled in connectHandler)
+	// Reset count after successful reconnection (handled in connectHandler)
 	// The Paho MQTT client handles the actual reconnection with SetAutoReconnect(true)
 	// We just need to track and log the attempts
 }
