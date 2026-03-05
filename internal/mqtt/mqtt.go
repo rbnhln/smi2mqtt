@@ -11,16 +11,17 @@ import (
 
 const reconnectWarnThreshold = 10
 
-// Create interface to enable tests
 type Publisher interface {
 	Publish(payload string, topic string, retained bool) error
 }
 
 type MqttClient struct {
-	client         mqtt.Client
-	logger         *slog.Logger
-	config         *config.Config
-	reconnectCount atomic.Uint32
+	client mqtt.Client
+	logger *slog.Logger
+	config *config.Config
+
+	reconnectAttempts atomic.Uint32
+	everConnected     atomic.Bool
 }
 
 func New(cfg *config.Config, logger *slog.Logger) (*MqttClient, error) {
@@ -40,9 +41,9 @@ func New(cfg *config.Config, logger *slog.Logger) (*MqttClient, error) {
 	opts.SetConnectRetryInterval(2 * time.Second)
 	opts.OnConnect = mqttClient.connectHandler
 	opts.OnConnectionLost = mqttClient.connectionLostHandler
+	opts.SetReconnectingHandler(mqttClient.reconnectingHandler)
 
 	mqttClient.client = mqtt.NewClient(opts)
-
 	return mqttClient, nil
 }
 
@@ -58,26 +59,29 @@ func (c *MqttClient) Disconnect() {
 }
 
 func (c *MqttClient) connectHandler(client mqtt.Client) {
-	count := c.reconnectCount.Load()
-	c.logger.Info("Connected to MQTT Broker")
-	if count > 0 {
-		c.logger.Info("Successfully reconnected to MQTT broker", "reconnect_count", count)
-		c.reconnectCount.Store(0)
+	attempts := c.reconnectAttempts.Load()
+
+	if c.everConnected.Load() && attempts > 0 {
+		c.logger.Info("Successfully reconnected to MQTT broker", "reconnect_attempts", attempts)
+	} else {
+		c.logger.Info("Connected to MQTT broker")
 	}
+
+	c.everConnected.Store(true)
+	c.reconnectAttempts.Store(0)
 }
 
 func (c *MqttClient) connectionLostHandler(client mqtt.Client, err error) {
-	count := c.reconnectCount.Add(1)
-	c.logger.Error("Connection to MQTT broker lost", "error", err, "reconnect_attempt", count)
-	
-	// Log when we've been trying to reconnect for a while
-	if count > reconnectWarnThreshold {
-		c.logger.Warn("Still trying to reconnect to MQTT broker", "reconnect_attempt", count)
+	c.logger.Error("Connection to MQTT broker lost", "error", err)
+}
+
+func (c *MqttClient) reconnectingHandler(client mqtt.Client, opts *mqtt.ClientOptions) {
+	attempt := c.reconnectAttempts.Add(1)
+	c.logger.Warn("Reconnecting to MQTT broker", "reconnect_attempt", attempt)
+
+	if attempt >= reconnectWarnThreshold {
+		c.logger.Warn("Still trying to reconnect to MQTT broker", "reconnect_attempt", attempt)
 	}
-	
-	// Reset count after successful reconnection (handled in connectHandler)
-	// The Paho MQTT client handles the actual reconnection with SetAutoReconnect(true)
-	// We just need to track and log the attempts
 }
 
 func (c *MqttClient) Publish(message string, topic string, retain bool) error {
