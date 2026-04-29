@@ -64,7 +64,9 @@ services:
   "mqtt_username": "your_mqtt_user",
   "mqtt_password": "your_mqtt_password",
   "ha": true,
-  "update_interval": 1
+  "update_interval": 1,
+  "dmon_interval": 1,
+  "query_interval": 10
 }
 ```
 
@@ -109,7 +111,9 @@ You can configure the application using a `config.json` file or by passing comma
 | `-username`      | `mqtt_username`    | Username for the MQTT server                 | (empty)                  |
 | `-password`      | `mqtt_password`    | Password for the MQTT server                 | (empty)                  |
 | `-ha`            | `ha`               | Enable Home Assistant auto-discovery         | `true`                   |
-| `-interval`      | `update_interval`  | GPU Readout interval in seconds           | `1`                      |
+| `-interval`      | `update_interval`  | Legacy fallback interval in seconds          | `1`                      |
+| `-dmon-interval` | `dmon_interval`    | dmon readout interval in seconds             | `1`                      |
+| `-query-interval`| `query_interval`   | query readout interval in seconds            | `1`                      |
 | `-version`       | (n/a)              | Display version and exit                     | `false`                  |
 
 ## MQTT Details

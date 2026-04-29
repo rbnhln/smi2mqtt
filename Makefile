@@ -47,7 +47,7 @@ audit:
 	@echo 'Vetting code...'
 	go vet ./...
 	go tool staticcheck ./...
-	go tool govulncheck
+	go tool govulncheck ./...
 	@echo 'Running tests...'
 	go test -race -vet=off ./...
 	@echo 'Running golangci-lint...'
@@ -60,12 +60,12 @@ audit:
 .PHONY: build
 build:
 	@echo 'Building ....'
-	go build -ldflags='-s' -o=./bin/smi2mqtt ./cmd
+	go build -trimpath -mod=vendor -ldflags='-s -w' -o=./bin/smi2mqtt ./cmd
 
 .PHONY: build_x86_64
 build_x86_64:
 	@echo 'Building for x86_64 ....'
-	GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags='-s' -o=./bin/smi2mqtt ./cmd
+	GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags='-s' -mod=vendor -trimpath -o=./bin/smi2mqtt ./cmd
 
 .PHONY: build_docker_tar
 build_docker_tar:

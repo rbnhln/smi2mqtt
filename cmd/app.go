@@ -56,7 +56,13 @@ func (app *application) serve() error {
 	for _, gpu := range listGpus {
 		currentGpu := gpu
 
-		stateChan, err := gpuinfo.CombinedMonitor(ctx, app.logger, currentGpu, app.config.UpdateInterval)
+		stateChan, err := gpuinfo.CombinedMonitor(
+			ctx,
+			app.logger,
+			currentGpu,
+			app.config.DmonInterval,
+			time.Duration(app.config.QueryInterval)*time.Second,
+		)
 		if err != nil {
 			app.logger.Error("failed to start combined monitor for gpu", "gpu_id", currentGpu.Index, "error", err)
 			continue

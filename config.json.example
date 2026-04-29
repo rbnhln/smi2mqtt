@@ -3,5 +3,7 @@
   "mqtt_username": "user",
   "mqtt_password": "pass",
   "ha": true,
-  "update_interval": 1
+  "update_interval": 1,
+  "dmon_interval": 1,
+  "query_interval": 10
 }

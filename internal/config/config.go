@@ -17,6 +17,8 @@ type Config struct {
 	MqttPassword   string `json:"mqtt_password"`
 	HA             bool   `json:"ha"`
 	UpdateInterval int    `json:"update_interval"`
+	DmonInterval   int    `json:"dmon_interval"`
+	QueryInterval  int    `json:"query_interval"`
 }
 
 // Load config
@@ -27,6 +29,8 @@ func Load(path string) (*Config, error) {
 	cfg.HA = true
 	cfg.Topic = "smi2mqtt"
 	cfg.UpdateInterval = 1
+	cfg.DmonInterval = 0
+	cfg.QueryInterval = 0
 
 	// Load values from config file, if present
 	file, err := os.ReadFile(path)
@@ -45,6 +49,15 @@ func Load(path string) (*Config, error) {
 	flag.StringVar(&cfg.MqttPassword, "password", cfg.MqttPassword, "password for mqtt server")
 	flag.BoolVar(&cfg.HA, "ha", cfg.HA, "Use Home Assistant auto-discovery")
 	flag.IntVar(&cfg.UpdateInterval, "interval", cfg.UpdateInterval, "Update interval in seconds (default: 1)")
+	flag.IntVar(&cfg.DmonInterval, "dmon-interval", cfg.DmonInterval, "dmon update interval in seconds (default: update interval)")
+	flag.IntVar(&cfg.QueryInterval, "query-interval", cfg.QueryInterval, "query update interval in seconds (default: update interval)")
+
+	if cfg.DmonInterval == 0 {
+		cfg.DmonInterval = cfg.UpdateInterval
+	}
+	if cfg.QueryInterval == 0 {
+		cfg.QueryInterval = cfg.UpdateInterval
+	}
 
 	return cfg, nil
 }
@@ -74,6 +87,12 @@ func (c *Config) Validate() error {
 	}
 	if c.UpdateInterval < 1 {
 		return fmt.Errorf("update interval must be at least 1 second")
+	}
+	if c.DmonInterval < 1 {
+		return fmt.Errorf("dmon interval must be at least 1 second")
+	}
+	if c.QueryInterval < 1 {
+		return fmt.Errorf("query interval must be at least 1 second")
 	}
 	return nil
 }
