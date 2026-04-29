@@ -64,11 +64,17 @@ services:
   "mqtt_username": "your_mqtt_user",
   "mqtt_password": "your_mqtt_password",
   "ha": true,
-  "update_interval": 1,
+  "update_interval": 0,
   "dmon_interval": 1,
   "query_interval": 10
 }
 ```
+
+*Update interval*:
+
+The update_interval option is deprecated and will be removed in a future release.
+A value of 0 disables legacy fallback behavior.
+If update_interval is set and dmon_interval and query_interval are not explicitly set, its value is applied to both. 
 
 ### 2. Command-Line Application
 
@@ -111,9 +117,9 @@ You can configure the application using a `config.json` file or by passing comma
 | `-username`      | `mqtt_username`    | Username for the MQTT server                 | (empty)                  |
 | `-password`      | `mqtt_password`    | Password for the MQTT server                 | (empty)                  |
 | `-ha`            | `ha`               | Enable Home Assistant auto-discovery         | `true`                   |
-| `-interval`      | `update_interval`  | Legacy fallback interval in seconds          | `1`                      |
+| `-interval`      | `update_interval`  | Legacy fallback interval in seconds          | `0`                      |
 | `-dmon-interval` | `dmon_interval`    | dmon readout interval in seconds             | `1`                      |
-| `-query-interval`| `query_interval`   | query readout interval in seconds            | `1`                      |
+| `-query-interval`| `query_interval`   | query readout interval in seconds            | `10`                      |
 | `-version`       | (n/a)              | Display version and exit                     | `false`                  |
 
 ## MQTT Details
