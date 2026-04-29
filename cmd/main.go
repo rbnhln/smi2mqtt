@@ -42,6 +42,23 @@ func main() {
 
 	flag.Parse()
 
+	// legacy handling for update flag
+	intervalSet := IsFlagSet("interval")
+	dmonSet := IsFlagSet("dmon-interval")
+	querySet := IsFlagSet("query-interval")
+
+	if intervalSet {
+		logger.Info("the interval flag is deprecated and will be removed in a future version")
+	}
+
+	if intervalSet && !dmonSet {
+		cfg.DmonInterval = cfg.UpdateInterval
+	}
+
+	if intervalSet && !querySet {
+		cfg.QueryInterval = cfg.UpdateInterval
+	}
+
 	// create or update config
 	err = config.Save("/opt/smi2mqtt/config.json", cfg)
 	if err != nil {
