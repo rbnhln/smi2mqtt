@@ -8,7 +8,7 @@ import (
 	"github.com/rbnhln/smi2mqtt/internal/mqtt"
 )
 
-// sensor data for HA
+// Sensor metadata for Home Assistant.
 type SensorDescription struct {
 	Name        string
 	DeviceClass string
@@ -16,7 +16,7 @@ type SensorDescription struct {
 	ValuePath   string
 }
 
-// HA-Device = GPU
+// Home Assistant device descriptor for one GPU.
 type Device struct {
 	Name         string   `json:"name"`
 	Identifiers  []string `json:"identifiers"`
@@ -24,7 +24,7 @@ type Device struct {
 	Model        string   `json:"model"`
 }
 
-// ConfigPayload ist die Hauptstruktur für die HA-Discovery-Nachricht.
+// ConfigPayload is the main structure for HA discovery messages.
 type ConfigPayload struct {
 	Device            Device `json:"device"`
 	Name              string `json:"name"`

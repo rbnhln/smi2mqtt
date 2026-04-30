@@ -17,6 +17,8 @@ type Config struct {
 	MqttPassword   string `json:"mqtt_password"`
 	HA             bool   `json:"ha"`
 	UpdateInterval int    `json:"update_interval"`
+	DmonInterval   int    `json:"dmon_interval"`
+	QueryInterval  int    `json:"query_interval"`
 }
 
 // Load config
@@ -26,7 +28,9 @@ func Load(path string) (*Config, error) {
 	// set default values for HA and mqtt Topic
 	cfg.HA = true
 	cfg.Topic = "smi2mqtt"
-	cfg.UpdateInterval = 1
+	cfg.UpdateInterval = 0
+	cfg.DmonInterval = 0
+	cfg.QueryInterval = 0
 
 	// Load values from config file, if present
 	file, err := os.ReadFile(path)
@@ -44,7 +48,24 @@ func Load(path string) (*Config, error) {
 	flag.StringVar(&cfg.MqttUsername, "username", cfg.MqttUsername, "username for mqtt server")
 	flag.StringVar(&cfg.MqttPassword, "password", cfg.MqttPassword, "password for mqtt server")
 	flag.BoolVar(&cfg.HA, "ha", cfg.HA, "Use Home Assistant auto-discovery")
-	flag.IntVar(&cfg.UpdateInterval, "interval", cfg.UpdateInterval, "Update interval in seconds (default: 1)")
+	flag.IntVar(&cfg.UpdateInterval, "interval", cfg.UpdateInterval, "Legacy update interval in seconds; 0 disables this flag (default: 0)")
+	flag.IntVar(&cfg.DmonInterval, "dmon-interval", cfg.DmonInterval, "dmon update interval in seconds (default: 1 or update interval)")
+	flag.IntVar(&cfg.QueryInterval, "query-interval", cfg.QueryInterval, "query update interval in seconds (default: 10 or update interval)")
+
+	if cfg.DmonInterval == 0 {
+		if cfg.UpdateInterval > 0 {
+			cfg.DmonInterval = cfg.UpdateInterval
+		} else {
+			cfg.DmonInterval = 1
+		}
+	}
+	if cfg.QueryInterval == 0 {
+		if cfg.UpdateInterval > 0 {
+			cfg.QueryInterval = cfg.UpdateInterval
+		} else {
+			cfg.QueryInterval = 10
+		}
+	}
 
 	return cfg, nil
 }
@@ -72,8 +93,14 @@ func (c *Config) Validate() error {
 	if c.Topic == "" {
 		return fmt.Errorf("topic is required")
 	}
-	if c.UpdateInterval < 1 {
-		return fmt.Errorf("update interval must be at least 1 second")
+	if c.UpdateInterval < 0 {
+		return fmt.Errorf("update interval must be greater or equal zero")
+	}
+	if c.DmonInterval < 1 {
+		return fmt.Errorf("dmon interval must be at least 1 second")
+	}
+	if c.QueryInterval < 1 {
+		return fmt.Errorf("query interval must be at least 1 second")
 	}
 	return nil
 }

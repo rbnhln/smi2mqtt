@@ -1,5 +1,7 @@
 package main
 
+import "flag"
+
 // Background() helper function accepts an arbitrary function as parameter
 func (app *application) background(fn func()) {
 	app.wg.Add(1)
@@ -16,4 +18,14 @@ func (app *application) background(fn func()) {
 		// Exec arbitrary func
 		fn()
 	}()
+}
+
+func IsFlagSet(name string) bool {
+	set := false
+	flag.CommandLine.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
 }

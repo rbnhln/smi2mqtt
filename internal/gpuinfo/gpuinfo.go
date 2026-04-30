@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -68,7 +67,7 @@ type GPU struct {
 	Uuid  string `json:"uuid"`
 }
 
-// GetGpuInfo extracts a list of all GPUs found by nividia-smi package
+// GetGpuInfo extracts a list of all GPUs found by nvidia-smi.
 func GetGpuInfo() ([]GPU, error) {
 	cmd := exec.Command("nvidia-smi", "--query-gpu", "index,gpu_name,gpu_uuid", "--format", "csv,noheader,nounits")
 	output, err := cmd.Output()
@@ -107,86 +106,80 @@ func GetGpuInfo() ([]GPU, error) {
 	return gpus, nil
 }
 
-func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU, intervalSeconds int) (<-chan GpuState, error) {
-	// outside faceing channel
+func CombinedMonitor(ctx context.Context, logger *slog.Logger, gpu GPU, dmonIntervalSeconds int, queryInterval time.Duration) (<-chan GpuState, error) {
+	// Outgoing channel exposed to callers.
 	combinedStateChan := make(chan GpuState)
 
-	// internal channels
+	// Internal channels for worker results.
 	dmonChan := make(chan DmonMetrics)
 	queryChan := make(chan QueryMetrics)
 
-	var wg sync.WaitGroup
-
 	// Goroutine for dmon
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(dmonChan)
-		runDmon(ctx, logger, gpu, intervalSeconds, dmonChan)
+		runDmon(ctx, logger, gpu, dmonIntervalSeconds, dmonChan)
 	}()
 
 	// Goroutine for query
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		defer close(queryChan)
-		runQuery(ctx, logger, gpu, time.Duration(intervalSeconds)*time.Second, queryChan)
+		runQuery(ctx, logger, gpu, queryInterval, queryChan)
 	}()
 
-	// The "Merger"-goroutine, to combine both
+	// Merge worker updates into a single state stream.
 	go func() {
 		defer close(combinedStateChan)
 
-		workersDone := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(workersDone)
-		}()
-
 		var currentState GpuState
 		currentState.Gpu = gpu
+		channelsOpen := func() bool {
+			return dmonChan != nil || queryChan != nil
+		}
 
-		// sendUpdatedState ist eine Hilfsfunktion, um Deadlocks zu vermeiden.
+		// sendUpdatedState helps avoid blocking during shutdown.
 		sendUpdatedState := func() {
 			select {
 			case combinedStateChan <- currentState:
 			case <-ctx.Done():
 			}
 		}
+		handleDmon := func(dmonData DmonMetrics, ok bool) {
+			if !ok {
+				dmonChan = nil
+				logger.Debug("dmon channel closed", "gpu_uuid", gpu.Uuid)
+				return
+			}
+
+			currentState.DmonMetrics = dmonData
+			sendUpdatedState()
+		}
+		handleQuery := func(queryData QueryMetrics, ok bool) {
+			if !ok {
+				queryChan = nil
+				logger.Debug("query channel closed", "gpu_uuid", gpu.Uuid)
+				return
+			}
+
+			currentState.QueryMetrics = queryData
+			sendUpdatedState()
+		}
 
 		for {
+			if !channelsOpen() {
+				logger.Info("all channels closed, shutting down combined monitor", "gpu_uuid", gpu.Uuid)
+				return
+			}
+
 			select {
 			case <-ctx.Done():
 				logger.Info("combined monitor context cancelled, shutting down", "gpu_uuid", gpu.Uuid)
 				return
 
-			case <-workersDone:
-				logger.Info("all workers finished, shutting down combined monitor", "gpu_uuid", gpu.Uuid)
-				return
-
 			case dmonData, ok := <-dmonChan:
-				if !ok {
-					dmonChan = nil
-					logger.Debug("dmon channel closed", "gpu_uuid", gpu.Uuid)
-				} else {
-					currentState.DmonMetrics = dmonData
-					sendUpdatedState()
-				}
+				handleDmon(dmonData, ok)
 
 			case queryData, ok := <-queryChan:
-				if !ok {
-					queryChan = nil
-					logger.Debug("query channel closed", "gpu_uuid", gpu.Uuid)
-				} else {
-					currentState.QueryMetrics = queryData
-					sendUpdatedState()
-				}
-			}
-
-			// If both channels are closed
-			if dmonChan == nil && queryChan == nil {
-				logger.Info("all channels closed, shutting down combined monitor", "gpu_uuid", gpu.Uuid)
-				return
+				handleQuery(queryData, ok)
 			}
 		}
 	}()
@@ -199,6 +192,17 @@ func runQuery(ctx context.Context, logger *slog.Logger, gpu GPU, interval time.D
 		logger.Error("invalid GPU UUID format", "gpu_uuid", gpu.Uuid)
 		return
 	}
+	const queryFields = "utilization.gpu,memory.used,memory.free,driver_version,fan.speed,pstate"
+	sendMetrics := func(metrics QueryMetrics) bool {
+		select {
+		case out <- metrics:
+			return true
+		case <-ctx.Done():
+			logger.Info("query context cancelled during send, shutting down monitor", "gpu_uuid", gpu.Uuid)
+			return false
+		}
+	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -207,7 +211,14 @@ func runQuery(ctx context.Context, logger *slog.Logger, gpu GPU, interval time.D
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cmd := exec.CommandContext(ctx, "nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.free,driver_version,fan.speed,pstate", "--format=csv,noheader,nounits", "-i", gpu.Uuid)
+			cmd := exec.CommandContext(
+				ctx,
+				"nvidia-smi",
+				"--query-gpu="+queryFields,
+				"--format=csv,noheader,nounits",
+				"-i",
+				gpu.Uuid,
+			)
 
 			output, err := cmd.Output()
 			if err != nil {
@@ -216,7 +227,9 @@ func runQuery(ctx context.Context, logger *slog.Logger, gpu GPU, interval time.D
 			}
 
 			metrics := parseQueryLine(string(output))
-			out <- metrics
+			if !sendMetrics(metrics) {
+				return
+			}
 		}
 	}
 }
@@ -258,18 +271,14 @@ func runDmon(ctx context.Context, logger *slog.Logger, gpu GPU, intervalSeconds 
 		for scanner.Scan() {
 			logger.Error("dmon process error", "gpu_uuid", gpu.Uuid, "error", scanner.Text())
 		}
-	}()
-
-	lines := make(chan string)
-	go func() {
-		defer close(lines)
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			lines <- scanner.Text()
+		if scanErr := scanner.Err(); scanErr != nil && ctx.Err() == nil {
+			logger.Error("failed to read dmon stderr", "gpu_uuid", gpu.Uuid, "error", scanErr)
 		}
 	}()
 
-	for line := range lines {
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
 		metrics := parseDmonLine(line)
 
 		select {
@@ -278,6 +287,10 @@ func runDmon(ctx context.Context, logger *slog.Logger, gpu GPU, intervalSeconds 
 			logger.Info("dmon context cancelled during send, shutting down monitor", "gpu_uuid", gpu.Uuid)
 			return
 		}
+	}
+
+	if scanErr := scanner.Err(); scanErr != nil && ctx.Err() == nil {
+		logger.Error("failed to read dmon stdout", "gpu_uuid", gpu.Uuid, "error", scanErr)
 	}
 	logger.Info("dmon process finished, shutting down monitor", "gpu_uuid", gpu.Uuid)
 }
