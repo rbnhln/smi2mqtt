@@ -15,9 +15,9 @@ require (
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260611141451-d61e87d5f4a3 // indirect
-	golang.org/x/tools v0.46.0 // indirect
-	golang.org/x/vuln v1.4.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260625142307-59b4966ccb57 // indirect
+	golang.org/x/tools v0.47.0 // indirect
+	golang.org/x/vuln v1.5.0 // indirect
 	honnef.co/go/tools v0.7.0 // indirect
 )
 
