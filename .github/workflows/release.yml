@@ -1,0 +1,78 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify module files + vendor
+        run: |
+          set -euo pipefail
+          go mod tidy -diff
+          go mod verify
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          go test -mod=vendor ./...
+
+      - name: Vet
+        run: |
+          set -euo pipefail
+          go vet -mod=vendor ./...
+
+      - name: Extract release notes from CHANGELOG.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"   # v1.0.0 -> 1.0.0
+          awk -v tag="$TAG" '
+            $0 ~ "^## \\[" tag "\\]" {p=1}
+            $0 ~ "^## \\[" && p && $0 !~ "^## \\[" tag "\\]" {exit}
+            p {print}
+          ' CHANGELOG.md > release-notes.md
+
+          if ! grep -q "^## \\[$TAG\\]" release-notes.md; then
+            echo "Release notes for $TAG not found in CHANGELOG.md"
+            exit 1
+          fi
+
+      - name: Build (linux/amd64)
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          build_one () {
+            local GOOS="$1"
+            local GOARCH="$2"
+            local BIN="smi2mqtt_${VERSION}_${GOOS}_${GOARCH}"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -mod=vendor -trimpath -ldflags "-s -w" -o "dist/${BIN}" ./cmd
+            (cd dist && shasum -a 256 "${BIN}" > "${BIN}.sha256")
+          }
+
+          build_one linux amd64
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          body_path: release-notes.md
