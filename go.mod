@@ -1,6 +1,6 @@
 module github.com/rbnhln/smi2mqtt
 
-go 1.25.6
+go 1.26.0
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
@@ -18,7 +18,7 @@ require (
 	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	golang.org/x/vuln v1.7.0 // indirect
-	honnef.co/go/tools v0.7.0 // indirect
+	honnef.co/go/tools v0.8.1 // indirect
 )
 
 tool (
