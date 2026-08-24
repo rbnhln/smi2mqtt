@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package typeindex defines an analyzer that provides a
-// [golang.org/x/tools/internal/typesinternal/typeindex.Index].
+// [honnef.co/go/tools/internal/xtools-internal/typesinternal/typeindex.Index].
 //
 // Like [golang.org/x/tools/go/analysis/passes/inspect], it is
 // intended to be used as a helper by other analyzers; it reports no
@@ -16,13 +16,13 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
-	"honnef.co/go/tools/internal/typesinternal/typeindex"
+	"honnef.co/go/tools/internal/xtools-internal/typesinternal/typeindex"
 )
 
 var Analyzer = &analysis.Analyzer{
 	Name: "typeindex",
 	Doc:  "indexes of type information for later passes",
-	URL:  "https://pkg.go.dev/golang.org/x/tools/internal/analysisinternal/typeindex",
+	URL:  "https://pkg.go.dev/honnef.co/go/tools/internal/xtools-internal/analysis/typeindex",
 	Run: func(pass *analysis.Pass) (any, error) {
 		inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 		return typeindex.New(inspect, pass.Pkg, pass.TypesInfo), nil

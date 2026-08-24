@@ -17,12 +17,9 @@ import (
 	"golang.org/x/tools/go/ast/edge"
 	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/types/typeutil"
+	"honnef.co/go/tools/internal/xtools-internal/astutil"
+	"honnef.co/go/tools/internal/xtools-internal/typesinternal"
 )
-
-// IsPackageLevel reports whether obj is a package-level symbol.
-func IsPackageLevel(obj types.Object) bool {
-	return obj.Pkg() != nil && obj.Parent() == obj.Pkg().Scope()
-}
 
 // New constructs an Index for the package of type-annotated syntax
 //
@@ -59,26 +56,61 @@ func New(inspect *inspector.Inspector, pkg *types.Package, info *types.Info) *In
 
 			if obj := info.Uses[n]; obj != nil {
 				// Index indirect dependencies (via fields and methods).
-				if !IsPackageLevel(obj) {
+				if !typesinternal.IsPackageLevel(obj) {
 					addPackage(obj.Pkg())
 				}
 
-				us, ok := ix.uses[obj]
-				if !ok {
-					us = &uses{}
-					us.code = us.initial[:0]
-					ix.uses[obj] = us
+				for {
+					us, ok := ix.uses[obj]
+					if !ok {
+						us = &uses{}
+						us.code = us.initial[:0]
+						ix.uses[obj] = us
+					}
+					delta := cur.Index() - us.last
+					if delta < 0 {
+						panic("non-monotonic")
+					}
+					us.code = binary.AppendUvarint(us.code, uint64(delta))
+					us.last = cur.Index()
+
+					// If n is a selection of a field or method of an instantiated
+					// type, also record a use of the generic field or method.
+					obj, ok = objectOrigin(obj)
+					if !ok {
+						break
+					}
 				}
-				delta := cur.Index() - us.last
-				if delta < 0 {
-					panic("non-monotonic")
-				}
-				us.code = binary.AppendUvarint(us.code, uint64(delta))
-				us.last = cur.Index()
 			}
 		}
 	}
 	return ix
+}
+
+// objectOrigin returns the generic object for obj if it is a field or
+// method of an instantied type; zero otherwise.
+//
+// (This operation is appropriate only for selections.
+// Lexically resolved references always resolve to the generic.
+// Although Named and Alias types also use Origin to express
+// an instance/generic distinction, that's in the domain
+// of Types; their TypeName objects always refer to the generic.)
+func objectOrigin(obj types.Object) (types.Object, bool) {
+	var origin types.Object
+	switch obj := obj.(type) {
+	case *types.Func:
+		if obj.Signature().Recv() != nil {
+			origin = obj.Origin() // G[int].method -> G[T].method
+		}
+	case *types.Var:
+		if obj.IsField() {
+			origin = obj.Origin() // G[int].field  -> G[T].field
+		}
+	}
+	if origin != nil && origin != obj {
+		return origin, true
+	}
+	return nil, false
 }
 
 // An Index holds an index mapping [types.Object] symbols to their syntax.
@@ -110,6 +142,10 @@ type uses struct {
 
 // Uses returns the sequence of Cursors of [*ast.Ident]s in this package
 // that refer to obj. If obj is nil, the sequence is empty.
+//
+// Uses, unlike the Uses field of [types.Info], records additional
+// entries mapping fields and methods of generic types to references
+// through their corresponding instantiated objects.
 func (ix *Index) Uses(obj types.Object) iter.Seq[inspector.Cursor] {
 	return func(yield func(inspector.Cursor) bool) {
 		if uses := ix.uses[obj]; uses != nil {
@@ -182,10 +218,9 @@ func (ix *Index) Selection(path, typename, name string) types.Object {
 func (ix *Index) Calls(callee types.Object) iter.Seq[inspector.Cursor] {
 	return func(yield func(inspector.Cursor) bool) {
 		for cur := range ix.Uses(callee) {
-			ek, _ := cur.ParentEdge()
-
 			// The call may be of the form f() or x.f(),
 			// optionally with parens; ascend from f to call.
+			// See logic in [typesinternal.UsedIdent], to which this is dual.
 			//
 			// It is tempting but wrong to use the first
 			// CallExpr ancestor: we have to make sure the
@@ -194,25 +229,20 @@ func (ix *Index) Calls(callee types.Object) iter.Seq[inspector.Cursor] {
 			// Avoiding Enclosing is also significantly faster.
 
 			// inverse unparen: f -> (f)
-			for ek == edge.ParenExpr_X {
-				cur = cur.Parent()
-				ek, _ = cur.ParentEdge()
+			cur = astutil.UnparenEnclosingCursor(cur)
+
+			// ascend selector (or qualified identifier): f -> x.f
+			if cur.ParentEdgeKind() == edge.SelectorExpr_Sel {
+				cur = astutil.UnparenEnclosingCursor(cur.Parent())
 			}
 
-			// ascend selector: f -> x.f
-			if ek == edge.SelectorExpr_Sel {
-				cur = cur.Parent()
-				ek, _ = cur.ParentEdge()
-			}
-
-			// inverse unparen again
-			for ek == edge.ParenExpr_X {
-				cur = cur.Parent()
-				ek, _ = cur.ParentEdge()
+			// ascend typeparams: f -> f[T]; f -> f[T1, T2]
+			if ek := cur.ParentEdgeKind(); ek == edge.IndexExpr_X || ek == edge.IndexListExpr_X {
+				cur = astutil.UnparenEnclosingCursor(cur.Parent())
 			}
 
 			// ascend from f or x.f to call
-			if ek == edge.CallExpr_Fun {
+			if cur.ParentEdgeKind() == edge.CallExpr_Fun {
 				curCall := cur.Parent()
 				call := curCall.Node().(*ast.CallExpr)
 				if typeutil.Callee(ix.info, call) == callee {
