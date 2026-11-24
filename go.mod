@@ -3,7 +3,7 @@ module github.com/rbnhln/smi2mqtt
 go 1.26.0
 
 require (
-	github.com/eclipse/paho.mqtt.golang v1.5.1
+	github.com/eclipse/paho.mqtt.golang v1.5.2
 	github.com/google/uuid v1.6.0
 )
 
