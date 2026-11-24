@@ -2,8 +2,8 @@
 ## explicit; go 1.18
 github.com/BurntSushi/toml
 github.com/BurntSushi/toml/internal
-# github.com/eclipse/paho.mqtt.golang v1.5.1
-## explicit; go 1.24.0
+# github.com/eclipse/paho.mqtt.golang v1.5.2
+## explicit; go 1.25.0
 github.com/eclipse/paho.mqtt.golang
 github.com/eclipse/paho.mqtt.golang/packets
 # github.com/google/uuid v1.6.0
